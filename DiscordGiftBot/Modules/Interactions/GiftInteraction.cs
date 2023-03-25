@@ -55,19 +55,15 @@ public class GiftInteraction : SlashCommandBase
         long gameId = long.Parse(gameIdStr);
         
         GiftCarrier? carrier = GiftService.GetCarriersForServer(Context.Guild.Id).Find(x => x.GameId == gameId);
-        if (carrier == null)
-            return;
 
-        GiftUser? user = carrier.Users.Find(x => x.Id == userId);
+        GiftUser? user = carrier?.Users.Find(x => x.Id == userId);
         if (user == null)
             return;
-
-        List<GiftEntry> availableGifts = carrier.Gifts.Where(x => user.Games.Contains(x)).ToList();
-
-        if (availableGifts.Count < 1)
+        
+        if (user.Games.Count < 1)
             return;
 
-        GiftEntry gift = availableGifts.First();
+        GiftEntry gift = user.Games.First();
 
         IUser giftOwner = await Context.Client.GetUserAsync(userId);
         var giftOwnerDm = await giftOwner.CreateDMChannelAsync();
@@ -84,11 +80,11 @@ public class GiftInteraction : SlashCommandBase
             {
                 var giftReceiverDm = await Context.User.CreateDMChannelAsync();
                 await giftReceiverDm.SendMessageAsync(
-                    $"Key of {carrier.GameName}, gifted by {giftOwner.Mention} ({giftOwner.Username}#{giftOwner.Discriminator}): `{gift.GameKey}`");
+                    $"Key of {gift.GameName}, gifted by {giftOwner.Mention} ({giftOwner.Username}#{giftOwner.Discriminator}): `{gift.GameKey}`");
                 await GiftService.RemoveKey(gift);
                 await RespondEphemeral(
                     "Claimed! See your DMs for the game key. Don't forget to thank the person for the free game!");
-                await giftOwnerDm.SendMessageAsync($"Key of {carrier.GameName} was claimed by {Context.User.Mention} ({Context.User.Username}#{Context.User.Discriminator})");
+                await giftOwnerDm.SendMessageAsync($"Key of {gift.GameName} was claimed by {Context.User.Mention} ({Context.User.Username}#{Context.User.Discriminator})");
             }
             catch (Exception e)
             {
@@ -129,7 +125,7 @@ public class GiftInteraction : SlashCommandBase
         
         GiftEntry? gift = GiftService.GetGiftViaId(giftId);
         
-        if (gift == null)
+        if (gift == null || gift.UserId != Context.User.Id)
             return;
         
         if (!GiftService.ClaimGift(gift))
@@ -153,6 +149,5 @@ public class GiftInteraction : SlashCommandBase
             GiftService.RemoveClaimFromGift(gift);
             await RespondEphemeral($"Something went wrong during claiming the gift. '{e.Message}'");
         }
-
     }
 }

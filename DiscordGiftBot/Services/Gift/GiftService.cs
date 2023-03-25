@@ -1,4 +1,5 @@
-﻿using Discord.WebSocket;
+﻿using System.Collections.Concurrent;
+using Discord.WebSocket;
 using DiscordGiftBot.Services.UserSpecificGuildStorage;
 using Newtonsoft.Json;
 
@@ -12,7 +13,8 @@ public class GiftService : BaseService<List<GiftEntry>>
     private DiscordSocketClient client;
     public List<SteamApp> SteamApps { get; private set; }
     private List<GiftCarrier> _cachedGifts;
-    private Dictionary<GiftEntry, DateTime> _giftClaimReceipts = new();
+    private ConcurrentDictionary<GiftEntry, DateTime> _giftClaimReceipts = new();
+    private Timer _giftClearerTimer;
 
     public GiftService(DiscordSocketClient client)
     {
@@ -20,6 +22,19 @@ public class GiftService : BaseService<List<GiftEntry>>
         Load();
         GetCombinedGifts();
         new Thread(x => GetSteamApps()).Start();
+        _giftClearerTimer = new Timer(x =>
+        {
+            List<GiftEntry> toBeRemoved = new();
+
+            foreach (var (key, value) in _giftClaimReceipts)
+            {
+                if ((value + TimeSpan.FromMinutes(10)) > DateTime.Now)
+                    toBeRemoved.Add(key);
+            }
+            
+            toBeRemoved.ForEach(RemoveClaimFromGift);
+            Console.WriteLine($"Cleared {toBeRemoved.Count} expired claims");
+        }, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(60));
     }
 
     public async Task AddSteamKey(ulong serverId, ulong userId, string username, long steamId, string key, bool needApproval)
@@ -96,18 +111,13 @@ public class GiftService : BaseService<List<GiftEntry>>
         return true;
     }
 
-    public void RemoveClaimFromGift(GiftEntry gift)
-    {
-        if (_giftClaimReceipts.ContainsKey(gift))
-            _giftClaimReceipts.Remove(gift);
-    }
-    
+    public void RemoveClaimFromGift(GiftEntry gift) => _giftClaimReceipts.Remove(gift, out DateTime _);
+
     public async Task RemoveKey(GiftEntry gift)
     {
         storage.Remove(gift);
         await Save();
         
-        RemoveClaimFromGift(gift);
         GetCombinedGifts();
     }
 
