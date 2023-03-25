@@ -11,6 +11,7 @@ namespace DiscordGiftBot.Services;
 
 public class CommandHandler
 {
+    public event Func<SocketUserMessage, Task> OnMessage; 
     private readonly DiscordSocketClient _client;
     private readonly InteractionService _interactionCommands;
     private readonly IServiceProvider _services;
@@ -37,6 +38,7 @@ public class CommandHandler
         _interactionCommands.SlashCommandExecuted += SlashInteractionCommandExecuted;
         _interactionCommands.ContextCommandExecuted += ContextInteractionCommandExecuted;
         _interactionCommands.ComponentCommandExecuted += ComponentInteractionCommandExecuted;
+        _client.MessageReceived += MessageReceivedAsync;
     }
 
     public async Task DeInitialiseAsync()
@@ -45,6 +47,20 @@ public class CommandHandler
         _interactionCommands.SlashCommandExecuted -= SlashInteractionCommandExecuted;
         _interactionCommands.ContextCommandExecuted -= ContextInteractionCommandExecuted;
         _interactionCommands.ComponentCommandExecuted -= ComponentInteractionCommandExecuted;
+        _client.MessageReceived -= MessageReceivedAsync;
+    }
+
+    private async Task MessageReceivedAsync(SocketMessage raw)
+    {
+        if (!(raw is SocketUserMessage message))
+            return;
+        if (message.Source != MessageSource.User)
+            return;
+        
+        Task? task = OnMessage?.Invoke(message);
+
+        if (task != null)
+            await task;
     }
 
     # region Interaction Error Handling

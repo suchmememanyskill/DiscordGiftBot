@@ -4,6 +4,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordGiftBot.Extentions;
 using DiscordGiftBot.Services;
+using DiscordGiftBot.Services.Games;
 using DiscordGiftBot.Services.Gift;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -96,11 +97,16 @@ class Program
     static ServiceProvider ConfigureServices ( IConfiguration configuration )
         => new ServiceCollection()
             .AddSingleton(configuration)
-            .AddSingleton<DiscordSocketClient>()
+            .AddSingleton(x => new DiscordSocketClient(new DiscordSocketConfig()
+            {
+                GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent,
+                
+            }))
             .AddSingleton<CommandService>()
             .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()))
             .AddSingleton<CommandHandler>()
             .AddSingleton<GiftService>()
+            .AddSingleton<NumberGuessService>()
             .BuildServiceProvider();
 
     static bool IsDebug ( )
