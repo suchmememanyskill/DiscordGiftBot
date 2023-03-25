@@ -4,12 +4,15 @@ using Newtonsoft.Json;
 
 namespace DiscordGiftBot.Services.Gift;
 
+public record GiftClaimReceipt(GiftEntry Gift, DateTime ClaimedAt);
+
 public class GiftService : BaseService<List<GiftEntry>>
 {
     public override string StoragePath() => "./gifts.json";
     private DiscordSocketClient client;
     public List<SteamApp> SteamApps { get; private set; }
-    public List<GiftCarrier> cachedGifts { get; private set; }
+    private List<GiftCarrier> _cachedGifts;
+    private Dictionary<GiftEntry, DateTime> _giftClaimReceipts = new();
 
     public GiftService(DiscordSocketClient client)
     {
@@ -54,7 +57,7 @@ public class GiftService : BaseService<List<GiftEntry>>
             NeedApproval = needApproval
         };
         
-        GiftCarrier? carrier = cachedGifts.Find(x =>
+        GiftCarrier? carrier = _cachedGifts.Find(x =>
             String.Equals(x.GameName, gameName, StringComparison.CurrentCultureIgnoreCase));
         
         if (carrier is {GiftType: GiftType.Custom})
@@ -78,10 +81,33 @@ public class GiftService : BaseService<List<GiftEntry>>
         await AddSteamKey(serverId, userId, username, app.AppId, key, needApproval);
     }
 
+    public GiftEntry? GetGiftViaId(long id) => storage.Find(x => x.Id == id);
+
+    /* Reserves a gift for a person. Returns True on successful claim, False on unsuccessful claim */
+    public bool ClaimGift(GiftEntry gift)
+    {
+        if (_giftClaimReceipts.ContainsKey(gift))
+        {
+            if ((_giftClaimReceipts[gift] + TimeSpan.FromMinutes(5)) > DateTime.Now)
+                return false;
+        }
+        
+        _giftClaimReceipts[gift] = DateTime.Now;
+        return true;
+    }
+
+    public void RemoveClaimFromGift(GiftEntry gift)
+    {
+        if (_giftClaimReceipts.ContainsKey(gift))
+            _giftClaimReceipts.Remove(gift);
+    }
+    
     public async Task RemoveKey(GiftEntry gift)
     {
         storage.Remove(gift);
         await Save();
+        
+        RemoveClaimFromGift(gift);
         GetCombinedGifts();
     }
 
@@ -104,7 +130,7 @@ public class GiftService : BaseService<List<GiftEntry>>
             carrier.Gifts.Add(entry);
         }
 
-        cachedGifts = gifts;
+        _cachedGifts = gifts;
         return gifts;
     }
 
@@ -122,7 +148,7 @@ public class GiftService : BaseService<List<GiftEntry>>
 
     public List<GiftCarrier> GetCarriersForServer(ulong serverId)
     {
-        return cachedGifts.Select(x => new GiftCarrier(x.GameName, x.GameText, x.GameId, x.GiftType)
+        return _cachedGifts.Select(x => new GiftCarrier(x.GameName, x.GameText, x.GameId, x.GiftType)
         {
             Gifts = x.Gifts.Where(y => y.ServerLock == 0 || y.ServerLock == serverId).ToList()
         }).Where(x => x.Gifts.Count > 0).ToList();

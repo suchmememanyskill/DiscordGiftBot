@@ -66,7 +66,9 @@ public class GiftSlashCommands : SlashCommandBase
     [SlashCommand("list", "Lists all available gifts")]
     public async Task GiftList()
     {
-        if (GiftService.cachedGifts.Count <= 0)
+        List<GiftCarrier> gifts = GiftService.GetCarriersForServer(me.Guild().Id);
+        
+        if (gifts.Count <= 0)
         {
             await me.RespondEphermeral("No gifts are available");
             return;
@@ -75,8 +77,6 @@ public class GiftSlashCommands : SlashCommandBase
         SelectMenuBuilder? selectMenuBuilder = null;
         var componentBuilder = new ComponentBuilder();
 
-        List<GiftCarrier> gifts = GiftService.GetCarriersForServer(me.Guild().Id);
-        
         for (int i = 0; i < gifts.Count; i++)
         {
             GiftCarrier gift = gifts[i];

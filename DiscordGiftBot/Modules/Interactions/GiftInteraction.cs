@@ -32,7 +32,7 @@ public class GiftInteraction : SlashCommandBase
         string selection = selections.First();
         long gameId = long.Parse(selection);
 
-        GiftCarrier? carrier = GiftService.cachedGifts.Find(x => x.GameId == gameId);
+        GiftCarrier? carrier = GiftService.GetCarriersForServer(Context.Guild.Id).Find(x => x.GameId == gameId);
         if (carrier == null)
             return;
 
@@ -54,7 +54,7 @@ public class GiftInteraction : SlashCommandBase
         ulong userId = ulong.Parse(userIdStr);
         long gameId = long.Parse(gameIdStr);
         
-        GiftCarrier? carrier = GiftService.cachedGifts.Find(x => x.GameId == gameId);
+        GiftCarrier? carrier = GiftService.GetCarriersForServer(Context.Guild.Id).Find(x => x.GameId == gameId);
         if (carrier == null)
             return;
 
@@ -74,6 +74,12 @@ public class GiftInteraction : SlashCommandBase
 
         if (!gift.NeedApproval)
         {
+            if (!GiftService.ClaimGift(gift))
+            {
+                await RespondEphemeral("Unable to claim gift. Please try again");
+                return;
+            }
+            
             try
             {
                 var giftReceiverDm = await Context.User.CreateDMChannelAsync();
@@ -82,19 +88,20 @@ public class GiftInteraction : SlashCommandBase
                 await GiftService.RemoveKey(gift);
                 await RespondEphemeral(
                     "Claimed! See your DMs for the game key. Don't forget to thank the person for the free game!");
+                await giftOwnerDm.SendMessageAsync($"Key of {carrier.GameName} was claimed by {Context.User.Mention} ({Context.User.Username}#{Context.User.Discriminator})");
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
+                GiftService.RemoveClaimFromGift(gift);
                 await RespondEphemeral($"Failed to claim game. Are your DMs open with the bot? '{e.Message}'");
             }
-            
-            await giftOwnerDm.SendMessageAsync($"Key of {carrier.GameName} was claimed by {Context.User.Mention} ({Context.User.Username}#{Context.User.Discriminator})");
+
             return;
         }
 
         var componentBuilder = new ComponentBuilder()
-            .WithButton("Yes", $"giftaccept:{gift.Id}:{carrier.GameId}:{Context.User.Id}")
+            .WithButton("Yes", $"giftaccept:{gift.Id}:{Context.User.Id}")
             .WithButton("No", $"giftdeny:{Context.User.Id}");
 
         await giftOwnerDm.SendMessageAsync(
@@ -114,23 +121,38 @@ public class GiftInteraction : SlashCommandBase
         await RespondEphemeral($"Denied gift");
     }
 
-    [ComponentInteraction("giftaccept:*:*:*")]
-    public async Task GiftAccept(string giftIdStr, string gameIdStr, string userIdStr)
+    [ComponentInteraction("giftaccept:*:*")]
+    public async Task GiftAccept(string giftIdStr, string userIdStr)
     {
         ulong userId = ulong.Parse(userIdStr);
-        long gameId = long.Parse(gameIdStr);
         long giftId = long.Parse(giftIdStr);
         
-        GiftCarrier? carrier = GiftService.cachedGifts.Find(x => x.GameId == gameId);
-        GiftEntry? gift = carrier?.Gifts.Find(x => x.Id == giftId);
+        GiftEntry? gift = GiftService.GetGiftViaId(giftId);
         
         if (gift == null)
             return;
         
-        IUser discordUser = await Context.Client.GetUserAsync(userId);
-        var channel = await discordUser.CreateDMChannelAsync();
-        await channel.SendMessageAsync($"Key of {carrier.GameName}, gifted by {Context.User.Mention} ({Context.User.Username}#{Context.User.Discriminator}): `{gift.GameKey}`\nDon't forget to thank the person for the free game!");
-        await GiftService.RemoveKey(gift);
-        await RespondEphemeral($"Accepted gift of {carrier.GameName} to {discordUser.Mention} ({discordUser.Username}#{discordUser.Discriminator}). Thanks!");
+        if (!GiftService.ClaimGift(gift))
+        {
+            await RespondEphemeral("Unable to claim gift. Please try again");
+            return;
+        }
+
+        try
+        {
+            IUser discordUser = await Context.Client.GetUserAsync(userId);
+            var channel = await discordUser.CreateDMChannelAsync();
+            await channel.SendMessageAsync(
+                $"Key of {gift.GameName}, gifted by {Context.User.Mention} ({Context.User.Username}#{Context.User.Discriminator}): `{gift.GameKey}`\nDon't forget to thank the person for the free game!");
+            await GiftService.RemoveKey(gift);
+            await RespondEphemeral(
+                $"Accepted gift of {gift.GameName} to {discordUser.Mention} ({discordUser.Username}#{discordUser.Discriminator}). Thanks!");
+        }
+        catch (Exception e)
+        {
+            GiftService.RemoveClaimFromGift(gift);
+            await RespondEphemeral($"Something went wrong during claiming the gift. '{e.Message}'");
+        }
+
     }
 }
