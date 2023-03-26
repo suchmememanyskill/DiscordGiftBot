@@ -16,6 +16,42 @@ public class GiftSlashCommands : SlashCommandBase
     public async Task GiftAdd(GiftType type, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName,
         string key, bool keepToThisServer = true, bool needApproval = true)
     {
+        await GiftAddInternal(type, gameName, key, keepToThisServer, needApproval);
+        await RespondAsync("Added key", ephemeral: true);
+    }
+    
+    [SlashCommand("add_2", "Add 2 gifts to the gift pool")]
+    public async Task GiftAdd2(GiftType type, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName,
+        string key, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName2,
+        string key2, bool keepToThisServer = true, bool needApproval = true)
+    {
+        await GiftAddInternal(type, gameName, key, keepToThisServer, needApproval);
+        await GiftAddInternal(type, gameName2, key2, keepToThisServer, needApproval);
+
+        await RespondAsync("Added keys", ephemeral: true);
+    }
+    
+    [SlashCommand("add_5", "Add 5 gifts to the gift pool")]
+    public async Task GiftAdd5(GiftType type, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName,
+        string key, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName2,
+        string key2, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName3,
+        string key3, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName4,
+        string key4, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName5,
+        string key5, bool keepToThisServer = true, bool needApproval = true)
+    {
+        await GiftAddInternal(type, gameName, key, keepToThisServer, needApproval);
+        await GiftAddInternal(type, gameName2, key2, keepToThisServer, needApproval);
+        await GiftAddInternal(type, gameName3, key3, keepToThisServer, needApproval);
+        await GiftAddInternal(type, gameName4, key4, keepToThisServer, needApproval);
+        await GiftAddInternal(type, gameName5, key5, keepToThisServer, needApproval);
+
+        await RespondAsync("Added keys", ephemeral: true);
+    }
+
+    private async Task GiftAddInternal(GiftType type,
+        [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName,
+        string key, bool keepToThisServer, bool needApproval)
+    {
         if (type == GiftType.Steam)
         {
             if (long.TryParse(gameName, out long result))
@@ -32,8 +68,6 @@ public class GiftSlashCommands : SlashCommandBase
         {
             await GiftService.AddCustomKey((keepToThisServer) ? me.Guild().Id : 0, me.User().Id, me.User().Username, gameName, key, needApproval);
         }
-
-        await RespondAsync("Added key", ephemeral: true);
     }
 
     [SlashCommand("mine", "Show keys owned by you")]
