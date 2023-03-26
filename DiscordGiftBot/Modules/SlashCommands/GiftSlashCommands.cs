@@ -97,7 +97,7 @@ public class GiftSlashCommands : SlashCommandBase
     }
 
     private static int SPLIT_AMOUNT = 25;
-    [SlashCommand("list", "Lists all available gifts")]
+    [SlashCommand("gift_list", "Lists all available gifts", ignoreGroupNames: true)]
     public async Task GiftList()
     {
         List<GiftCarrier> gifts = GiftService.GetCarriersForServer(me.Guild().Id);
