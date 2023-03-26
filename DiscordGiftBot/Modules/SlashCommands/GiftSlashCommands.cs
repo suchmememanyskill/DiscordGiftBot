@@ -61,7 +61,6 @@ public class GiftSlashCommands : SlashCommandBase
             else
             {
                 await GiftService.AddSteamKey((keepToThisServer) ? me.Guild().Id : 0, me.User().Id, me.User().Username, gameName, key, needApproval);
-                return;
             }
         }
         else
@@ -132,6 +131,9 @@ public class GiftSlashCommands : SlashCommandBase
         componentBuilder.WithSelectMenu(selectMenuBuilder);
         await me.RespondEphermeral("Available gifts:", components: componentBuilder.Build());
     }
+
+    [SlashCommand("list", "Lists all available gifts")]
+    public async Task GiftListAlt() => await GiftList();
     
     public class GameAddAutocompleteHandler : AutocompleteHandler
     {
