@@ -52,7 +52,12 @@ public class NumberGuessService
         Console.WriteLine($"Number is {_number}");
     }
 
-
+    public async Task ForceStopGame()
+    {
+        _active = false;
+        _messages.OnMessage -= ProcessMessage;
+    }
+    
     private async Task ProcessMessage(SocketUserMessage message)
     {
         if (!_active)
