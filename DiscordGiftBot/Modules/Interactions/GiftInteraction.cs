@@ -2,6 +2,7 @@
 using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordGiftBot.Modules.Base;
+using DiscordGiftBot.Modules.SlashCommands;
 using DiscordGiftBot.Services.Gift;
 
 namespace DiscordGiftBot.Modules.Interactions;
@@ -10,6 +11,13 @@ public class GiftInteraction : SlashCommandBase
 {
     public GiftService GiftService { get; set; }
     protected bool forceEphemeral = false;
+    private IBaseInterface me => this;
+
+    private RequestOptions _requestOptions = new()
+    {
+        RetryMode = RetryMode.RetryRatelimit,
+        RatelimitCallback = x => Task.Delay(1000)
+    };
 
     public async Task RespondEphemeral(string text = null, Embed embed = null, MessageComponent components = null)
     {
@@ -51,6 +59,7 @@ public class GiftInteraction : SlashCommandBase
     [ComponentInteraction("giftget:*:*")]
     public async Task GiftGet(string gameIdStr, string userIdStr)
     {
+        await DeferAsync(true);
         ulong userId = ulong.Parse(userIdStr);
         long gameId = long.Parse(gameIdStr);
         
@@ -59,7 +68,7 @@ public class GiftInteraction : SlashCommandBase
         GiftUser? user = carrier?.Users.Find(x => x.Id == userId);
         if (user == null)
             return;
-        
+
         if (user.Games.Count < 1)
             return;
 
@@ -72,7 +81,7 @@ public class GiftInteraction : SlashCommandBase
         {
             if (!GiftService.ClaimGift(gift))
             {
-                await RespondEphemeral("Unable to claim gift. Please try again");
+                await FollowupAsync("Unable to claim gift. Please try again", ephemeral: true, options: _requestOptions);
                 return;
             }
             
@@ -80,17 +89,17 @@ public class GiftInteraction : SlashCommandBase
             {
                 var giftReceiverDm = await Context.User.CreateDMChannelAsync();
                 await giftReceiverDm.SendMessageAsync(
-                    $"Key of {gift.GameName}, gifted by {giftOwner.Mention} ({giftOwner.Username}#{giftOwner.Discriminator}): `{gift.GameKey}`");
+                    $"Key of {gift.GameName}, gifted by {giftOwner.Mention} ({giftOwner.Username}#{giftOwner.Discriminator}): `{gift.GameKey}`", options: _requestOptions);
                 await GiftService.RemoveKey(gift);
-                await RespondEphemeral(
-                    "Claimed! See your DMs for the game key. Don't forget to thank the person for the free game!");
-                await giftOwnerDm.SendMessageAsync($"Key of {gift.GameName} was claimed by {Context.User.Mention} ({Context.User.Username}#{Context.User.Discriminator})");
+                await FollowupAsync(
+                    "Claimed! See your DMs for the game key. Don't forget to thank the person for the free game!", ephemeral: true, options: _requestOptions);
+                await giftOwnerDm.SendMessageAsync($"Key of {gift.GameName} was claimed by {Context.User.Mention} ({Context.User.Username}#{Context.User.Discriminator})", options: _requestOptions);
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
                 GiftService.RemoveClaimFromGift(gift);
-                await RespondEphemeral($"Failed to claim game. Are your DMs open with the bot? '{e.Message}'");
+                await FollowupAsync($"Failed to claim game. Are your DMs open with the bot? '{e.Message}'", ephemeral: true, options: _requestOptions);
             }
 
             return;
@@ -102,9 +111,9 @@ public class GiftInteraction : SlashCommandBase
 
         await giftOwnerDm.SendMessageAsync(
             $"{Context.User.Mention} ({Context.User.Username}#{Context.User.Discriminator} from server {Context.Guild.Name}) wants to have the game {gift.GameName}. Do you want to gift this game?",
-            components: componentBuilder.Build());
+            components: componentBuilder.Build(), options: _requestOptions);
         
-        await RespondEphemeral($"Asked {giftOwner.Mention} ({giftOwner.Username}#{giftOwner.Discriminator}) for the game {gift.GameName}. Please have your DM's open with the bot to be able to receive a response");
+        await FollowupAsync($"Asked {giftOwner.Mention} ({giftOwner.Username}#{giftOwner.Discriminator}) for the game {gift.GameName}. Please have your DM's open with the bot to be able to receive a response", ephemeral: true, options: _requestOptions);
     }
 
     [ComponentInteraction("giftdeny:*")]
@@ -149,5 +158,15 @@ public class GiftInteraction : SlashCommandBase
             GiftService.RemoveClaimFromGift(gift);
             await RespondEphemeral($"Something went wrong during claiming the gift. '{e.Message}'");
         }
+    }
+    
+    [ModalInteraction("gift_modal_add")]
+    public async Task GiftAddModal(GiftSlashCommands.GiftModal modal)
+    {
+        List<string> failed = await GiftService.AddKeys((modal.KeepToServer.ToLower() == "yes") ? me.Guild().Id : 0, me.User().Id,
+            me.User().Username, modal.Keys, modal.NeedConfirmation.ToLower() == "yes");
+
+        await RespondAsync($"Added keys\n\n{failed.Count} lines failed to get added\n{string.Join('\n', failed)}",
+            ephemeral: true);
     }
 }

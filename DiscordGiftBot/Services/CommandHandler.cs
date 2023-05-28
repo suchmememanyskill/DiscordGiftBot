@@ -68,7 +68,7 @@ public class CommandHandler
     private async Task ComponentInteractionCommandExecuted(ComponentCommandInfo arg1, Discord.IInteractionContext arg2,
         Discord.Interactions.IResult arg3)
     {
-        Console.WriteLine($"{DateTime.Now}: {arg2.User.Username} executed interaction {arg1.Name}");
+        Console.WriteLine($"{DateTime.Now}: {arg2.User.Username} executed interaction {arg1?.Name ?? "[Unknown]"}");
         
         if (!arg3.IsSuccess)
         {

@@ -163,4 +163,42 @@ public class GiftService : BaseService<List<GiftEntry>>
             Gifts = x.Gifts.Where(y => y.ServerLock == 0 || y.ServerLock == serverId).ToList()
         }).Where(x => x.Gifts.Count > 0).ToList();
     }
+    
+    public async Task<List<string>> AddKeys(ulong serverId, ulong userId, string username, string userInput, bool needApproval)
+    {
+        List<string> failed = new();
+        List<string> lines = userInput.Split("\n").Select(x => x.Trim()).ToList();
+
+        foreach (var line in lines)
+        {
+            if (!line.Contains(':'))
+            {
+                failed.Add(line);
+                continue;
+            }
+
+            string key = line.Split(':').Last();
+            string game = line.Substring(0, line.Length - key.Length - 1).Trim();
+            key = key.Trim();
+            SteamApp? app = SteamApps.Find(x => x.Name.Equals(game, StringComparison.InvariantCultureIgnoreCase));
+
+            GiftEntry gift = new()
+            {
+                GameId = app?.AppId ?? Program.Random.Next(),
+                Type = (app != null) ? GiftType.Steam : GiftType.Custom,
+                GameName = app?.Name ?? game,
+                GameKey = key,
+                UserId = userId,
+                Username = username,
+                ServerLock = serverId,
+                NeedApproval = needApproval
+            };
+            storage.Add(gift);
+        }
+        
+        await Save();
+        GetCombinedGifts();
+
+        return failed;
+    }
 }

@@ -19,33 +19,25 @@ public class GiftSlashCommands : SlashCommandBase
         await GiftAddInternal(type, gameName, key, keepToThisServer, needApproval);
         await RespondAsync("Added key", ephemeral: true);
     }
-    
-    [SlashCommand("add_2", "Add 2 gifts to the gift pool")]
-    public async Task GiftAdd2(GiftType type, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName,
-        string key, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName2,
-        string key2, bool keepToThisServer = true, bool needApproval = true)
-    {
-        await GiftAddInternal(type, gameName, key, keepToThisServer, needApproval);
-        await GiftAddInternal(type, gameName2, key2, keepToThisServer, needApproval);
 
-        await RespondAsync("Added keys", ephemeral: true);
-    }
-    
-    [SlashCommand("add_5", "Add 5 gifts to the gift pool")]
-    public async Task GiftAdd5(GiftType type, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName,
-        string key, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName2,
-        string key2, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName3,
-        string key3, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName4,
-        string key4, [Autocomplete(typeof(GameAddAutocompleteHandler))] string gameName5,
-        string key5, bool keepToThisServer = true, bool needApproval = true)
-    {
-        await GiftAddInternal(type, gameName, key, keepToThisServer, needApproval);
-        await GiftAddInternal(type, gameName2, key2, keepToThisServer, needApproval);
-        await GiftAddInternal(type, gameName3, key3, keepToThisServer, needApproval);
-        await GiftAddInternal(type, gameName4, key4, keepToThisServer, needApproval);
-        await GiftAddInternal(type, gameName5, key5, keepToThisServer, needApproval);
+    [SlashCommand("add_modal", "Add multiple gifts via a modal")]
+    public Task GiftAddModal() => Context.Interaction.RespondWithModalAsync<GiftModal>("gift_modal_add");
 
-        await RespondAsync("Added keys", ephemeral: true);
+    public class GiftModal : IModal
+    {
+        public string Title => "Add gifts";
+
+        [InputLabel("Keep To This Server")]
+        [ModalTextInput("keeptoserver", TextInputStyle.Short, "Yes or No", initValue: "Yes", maxLength: 3)]
+        public string KeepToServer { get; set; } = "Yes";
+        
+        [InputLabel("Need Confirmation")]
+        [ModalTextInput("needconfirmation", TextInputStyle.Short, "Yes or No", initValue: "Yes", maxLength: 3)]
+        public string NeedConfirmation { get; set; } = "Yes";
+        
+        [InputLabel("Keys")]
+        [ModalTextInput("keys", TextInputStyle.Paragraph, "Game Name:key\nGame Name 2:key2")]
+        public string Keys { get; set; } = "";
     }
 
     private async Task GiftAddInternal(GiftType type,
